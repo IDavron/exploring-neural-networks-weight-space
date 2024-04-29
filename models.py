@@ -48,3 +48,20 @@ class Classifier_2(nn.Module):
         x = self.relu(self.fc3(x))
         x = self.fc4(x)
         return self.softmax(x)
+    
+class Classifier(nn.Module):
+    def __init__(self, output_dim, input_dim = 151):
+        super(Classifier, self).__init__()
+        self.fc1 = nn.Linear(input_dim, 200)
+        self.fc2 = nn.Linear(200, 200)
+        self.fc3 = nn.Linear(200, 200)
+        self.fc4 = nn.Linear(200, output_dim)
+        self.relu = nn.ReLU()
+        self.softmax = nn.Softmax(dim=1)
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.relu(self.fc3(x))
+        x = self.fc4(x)
+        return self.softmax(x)

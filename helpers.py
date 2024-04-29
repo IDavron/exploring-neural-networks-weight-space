@@ -3,6 +3,7 @@ import torch
 import matplotlib.pyplot as plt
 from models import MLP
 import csv
+import os
 
 def rotate(X, angle):
     '''
@@ -13,7 +14,7 @@ def rotate(X, angle):
     X_rotated = X.dot(R)
     return X_rotated
 
-def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired'):
+def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', device="cpu"):
     '''
     Plot the decision boundary of a model.
     '''
@@ -25,8 +26,9 @@ def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired'):
     xx, yy = np.meshgrid(np.linspace(x_min, x_max, steps), np.linspace(y_min, y_max, steps))
     X_grid = np.c_[xx.ravel(), yy.ravel()]
 
+    model.to(device)
     model.eval()
-    y_boundary = model(torch.from_numpy(X_grid).float()).detach().numpy().round()
+    y_boundary = model(torch.from_numpy(X_grid).float().to(device)).detach().numpy().round()
     y_boundary = np.array(y_boundary).reshape(xx.shape)
 
     color_map = plt.get_cmap(color_map)
@@ -42,9 +44,14 @@ def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired'):
     plt.legend(["0","1"])
     plt.show()
 
-def load_model(angle, i):
+def load_model(dataset_name, angle, i, datasets_path = "Models"):
+    '''
+    Load model in given dataset, angle and return it.
+    '''
     model = MLP()
-    model.load_state_dict(torch.load(f"models/model_{angle}_{i}.pth"))
+    model_name = f"model_{angle}_{i}.pth"
+    model_path = os.path.join(datasets_path, dataset_name, model_name)
+    model.load_state_dict(torch.load(model_path))
     return model
 
 def model_to_list(model) -> np.array:
