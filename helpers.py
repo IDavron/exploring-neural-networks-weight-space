@@ -5,10 +5,15 @@ from models import MLP
 import csv
 import os
 
-def rotate(X, angle):
+def rotate(X, angle: int):
     '''
     Rotate the dataset X by the angle.
+
+    Parameters:
+        X (np.array): The dataset.
+        angle (float): The angle to rotate by.
     '''
+
     rad = np.radians(angle)
     R = np.array([[np.cos(rad), -np.sin(rad)], [np.sin(rad), np.cos(rad)]])
     X_rotated = X.dot(R)
@@ -17,7 +22,15 @@ def rotate(X, angle):
 def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', device="cpu"):
     '''
     Plot the decision boundary of a model.
+
+    Parameters:
+        X (np.array): The dataset.
+        y (np.array): The labels.
+        steps (int): The number of steps to take in the meshgrid.
+        color_map (str): The color map to use.
+        device (str): The device to use.
     '''
+
     x_min = X[:, 0].min() - 1
     x_max = X[:, 0].max() + 1
     y_min = X[:, 1].min() - 1
@@ -44,10 +57,17 @@ def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', device="
     plt.legend(["0","1"])
     plt.show()
 
-def load_model(dataset_name, angle, i, datasets_path = "Models"):
+def load_model(dataset_name: str, angle: int, i: int, datasets_path: str = "Models"):
     '''
     Load model in given dataset, angle and return it.
+
+    Parameters:
+        dataset_name (str): The name of the dataset.
+        angle (int): The angle on which the model is trained on.
+        i (int): The index of the model.
+        datasets_path (str): The path to the models.
     '''
+
     model = MLP()
     model_name = f"model_{angle}_{i}.pth"
     model_path = os.path.join(datasets_path, dataset_name, model_name)
@@ -57,6 +77,9 @@ def load_model(dataset_name, angle, i, datasets_path = "Models"):
 def model_to_list(model) -> np.array:
     '''
     Takes all the weights and biases of a model and returns them as a list.
+
+    Parameters:
+        model (nn.Module): The model to extract the parameters from.
     '''
     trainable_parameters = np.array([])
     for param in model.parameters():
@@ -68,6 +91,12 @@ def model_to_list(model) -> np.array:
 def list_to_model(list) -> MLP:
     '''
     Takes a list of weights and biases and assigns them to a model.
+
+    Parameters:
+        list (np.array): The list of weights and biases.
+    
+    Returns:
+        model (nn.Module): The model with the weights and biases assigned.
     '''
     model = MLP()
     index = 0
