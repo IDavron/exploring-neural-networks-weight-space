@@ -1,5 +1,8 @@
 venv
 models
+wandb
+utils.egg-info
 __pycache__
 
 logs.csv
+.env
