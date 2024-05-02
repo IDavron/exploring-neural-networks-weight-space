@@ -25,8 +25,10 @@ class MLP(nn.Module):
         x = self.fc2(x)
         return self.sigmoid(x)
     
+
+
 class Classifier(nn.Module):
-    def __init__(self, input_dim: int, hidden_dims: list, output_dim: int):
+    def __init__(self, input_dim: int, hidden_dims: list, output_dim: int, dropout:float = 0.0):
         super(Classifier, self).__init__()
 
         if(len(hidden_dims) == 0):
@@ -41,11 +43,12 @@ class Classifier(nn.Module):
 
         self.fc2 = nn.Linear(hidden_dims[-1], output_dim)
         self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
         self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
-        x = self.relu(self.fc1(x))
+        x = self.relu(self.dropout(self.fc1(x)))
         for hidden_layer in self.hidden_layers:
-            x = self.relu(hidden_layer(x))
+            x = self.relu(self.dropout(hidden_layer(x)))
         x = self.fc2(x)
         return self.softmax(x)

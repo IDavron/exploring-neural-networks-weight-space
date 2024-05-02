@@ -26,6 +26,7 @@ def models_to_csv(model_config, input_dir, output_dir = "", file_name="dataset.c
     output_path = os.path.join(output_dir, file_name)
     with(open(output_path, "w")) as f:
         fieldnames = [f"weight_{i}" for i in range(0, 151)]
+        fieldnames.insert(0, "model_name")
         fieldnames.append("angle")
         writer = csv.writer(f, lineterminator = '\n')
         writer.writerow(fieldnames)
@@ -38,6 +39,7 @@ def models_to_csv(model_config, input_dir, output_dir = "", file_name="dataset.c
             weights = model_to_list(m)
             row = weights.tolist()
             row.append(angle)
+            row.insert(0, model)
             writer.writerow(row)
     return True
 

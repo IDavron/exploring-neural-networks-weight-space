@@ -1,6 +1,13 @@
 import torch
 import numpy as np
 from utils.model.models import MLP
+import sklearn.datasets
+
+def get_moons_dataset(n_samples: int = 1000, noise: float = 0.1, random_state=42, normalize: bool = True) -> tuple:
+    X,y = sklearn.datasets.make_moons(n_samples=n_samples, noise=noise, random_state=random_state)
+    if(normalize):
+        X = (X - X.mean(axis=0)) / X.std(axis=0)
+    return X, y
 
 def rotate(X, angle: int):
     '''
@@ -40,7 +47,10 @@ def list_to_model(list, model_config) -> MLP:
     Returns:
         model (nn.Module): The model with the weights and biases assigned.
     '''
-    model = MLP(model_config["INPUT_DIM"], model_config["HIDDEN_DIMS"], model_config["OUTPUT_DIM"])
+    input_dim = model_config["INPUT_DIM"]
+    hidden_dims = model_config["HIDDEN_DIMS"]
+    output_dim = model_config["OUTPUT_DIM"]
+    model = MLP(input_dim, hidden_dims, output_dim)
     index = 0
     for param in model.parameters():
         parameters_from_list = list[index:index+param.numel()]
