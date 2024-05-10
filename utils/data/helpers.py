@@ -37,7 +37,7 @@ def model_to_list(model) -> np.array:
     return trainable_parameters
 
 
-def list_to_model(list, model_config) -> MLP:
+def list_to_model(model, list) -> None:
     '''
     Takes a list of weights and biases and assigns them to a model.
 
@@ -47,14 +47,19 @@ def list_to_model(list, model_config) -> MLP:
     Returns:
         model (nn.Module): The model with the weights and biases assigned.
     '''
-    input_dim = model_config["INPUT_DIM"]
-    hidden_dims = model_config["HIDDEN_DIMS"]
-    output_dim = model_config["OUTPUT_DIM"]
-    model = MLP(input_dim, hidden_dims, output_dim)
     index = 0
     for param in model.parameters():
         parameters_from_list = list[index:index+param.numel()]
         param.data = torch.tensor(parameters_from_list, dtype=torch.float32).reshape(param.shape)
         index += param.numel()
 
+def mlp_from_config(model_config: dict) -> MLP:
+    input_dim = model_config["input_dim"]
+    hidden_dims = model_config["hidden_dims"]
+    output_dim = model_config["output_dim"]
+    dropout = model_config.get("dropout", 0.0)
+    use_batch_norm = model_config.get("use_batch_norm", False)
+    output_activation = model_config.get("output_activation", "softmax")
+
+    model = MLP(input_dim, hidden_dims, output_dim, dropout, use_batch_norm, output_activation)
     return model

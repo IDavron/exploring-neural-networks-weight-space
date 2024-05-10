@@ -4,131 +4,112 @@
 #   must be present in .env file.                                                               #
 #################################################################################################
 
-
 import torch
 import torch.nn as nn
-import sklearn.datasets
 
 from tqdm import tqdm
 import wandb
 
-from utils.model.models import MLP, Classifier
-from utils.data.helpers import get_moons_dataset, rotate
+from utils.model.models import MLP
 
-import os
-from argparse import ArgumentParser
+from pathlib import Path
+from utils.data.helpers import rotate, get_moons_dataset
 
-
-def train_zoo(config, output_dir, log=False):
-    experiment_name = config["EXPERIMENT_NAME"]
-    # Hyperparameters
-    hyperparameters = config["HYPERPARAMETERS"]
-    angles = hyperparameters["ANGLES"]
-    models_per_angle = hyperparameters["MODELS_PER_ANGLE"]
-    seed = hyperparameters["SEED"]
-
-    model_config = config["MODEL"]
-
+def train_zoo(angles: list, models_per_angle: int, output_dir: str) -> list:
+    '''
+    Train a zoo of MLP models.\n
+    MLP structure:\n
+        - input_dim = 2
+        - hidden_dims = [10, 10]
+        - output_dim = 1
+    
+    Parameters:
+        angles (int): Angles of the moons dataset to train models on.
+        models_per_angle (int): Number of models for each angle.
+        output_dir (str): The directory to save trained models.
+    
+    Return:
+        The list of (model_name, model_accuracy) for each model.
+    '''
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    output_dir = Path(output_dir)
 
-    save_dir = os.path.join(output_dir, experiment_name)
-    if(not os.path.exists(save_dir)):
-        os.mkdir(save_dir)
-
-    if(log):
-        cfg = {"experiment_name": experiment_name, "hyperparameter": hyperparameters, "model": model_config}
-        wandb.init(project=config["WANDB_PROJECT"], entity=config["WANDB_ENTITY"], config=cfg, name=experiment_name)
-        columns = ["model", "accuracy"]
-        accuracy_table = wandb.Table(columns=columns)
-
-    # Dataset
-    X,y = get_moons_dataset()
+    # Hyperparameters
+    epochs = 60
+    learning_rate = 0.05
+    seed = 42
+    # Model config
+    input_dim = 2
+    hidden_dims = [10, 10]
+    output_dim = 1
 
     # Logging
     torch.manual_seed(seed)
+    model_accuracies = []
+
+    # Data
+    X,y = get_moons_dataset
 
     # Training
     print(f"STARTING TRAINING MODEL ZOO")
     print(f"Angles: {angles}")
     print(f"Models per angle: {models_per_angle}")
-    
     for angle in tqdm(angles):
-        for i in tqdm(range(models_per_angle)):
-            X_rotated = rotate(X, angle)
-            X_tensor = torch.tensor(X_rotated, dtype=torch.float32).to(device)
-            y_tensor = torch.tensor(y.reshape(-1,1), dtype=torch.float32).to(device)
+        X_rotated = rotate(X, angle)
+        X_tensor = torch.tensor(X_rotated, dtype=torch.float32).to(device)
+        y_tensor = torch.tensor(y, dtype=torch.float32).to(device)
+        for i in range(models_per_angle):
+            model = MLP(input_dim, hidden_dims, output_dim)
+            model.to(device)
+            criterion = nn.BCELoss()
+            optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-            model = train_mlp(config, X_tensor, y_tensor)
-
+            model.train()
+            for _ in range(epochs):
+                optimizer.zero_grad()
+                y_pred = model(X_tensor).flatten()
+                loss = criterion(y_pred, y_tensor)
+                loss.backward()
+                optimizer.step()
+            
             model.eval()
-            y_pred = model(X_tensor).cpu().detach().numpy().round().flatten()
-            correct = (y_pred == y).sum()
-            accuracy = correct / len(y) * 100
+            y_pred = model(X_tensor).flatten()
+            correct = (y_pred.round() == y_tensor).sum().item()
+            accuracy = correct / len(y)
 
-            # Log accuracy into WandB
             model_name = f"model_{angle}_{i}.pth"
+            torch.save(model.state_dict(), output_dir/model_name)
+            model_accuracies.append((model_name, accuracy))
 
-            if(log):
-                accuracy_table.add_data(model_name, accuracy)
+    return model_accuracies
 
-            # Save the model
-            model_path = os.path.join(save_dir, model_name)
-            torch.save(model.state_dict(), model_path)
 
-    if(log):
-        wandb.log({"accuracy_table": accuracy_table})
-        wandb.finish()
+def train_mlp(model: nn.Module, epochs: int, learning_rate: float, criterion, optimizer, dataloader_train, dataloader_valid=None, seed:int=None, log:bool=False) -> tuple:
+    '''
+    Train a MLP model on the given dataloaders.\n
 
-def train_mlp(config, X, y) -> MLP:
+    Parameters:
+        model (nn.Module): The model to train.
+        epochs (int): Number of epochs to train.
+        learning_rate (float): The learning rate.
+        criterion: The loss function.
+        optimizer: The optimizer.
+        dataloader_train: The dataloader for training.
+        dataloader_valid: The dataloader for validating.
+        seed (int): Optional seed to set pytorch seed for reproducibility.
+        log (bool): Whether to log the training process.
+
+    Return:
+        Tuple of 2 lists of train_losses, valid_losses with loss values at each epoch.
+    '''
+    if(seed is not None):
+        torch.manual_seed(seed)
+        
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    # Hyperparameters
-    hyperparameters = config["HYPERPARAMETERS"]
-    epochs = hyperparameters["EPOCHS"]
-    learning_rate = hyperparameters["LEARNING_RATE"]
-
-    model_config = config["MODEL"]
-    input_dim = model_config["INPUT_DIM"]
-    hidden_dims = model_config["HIDDEN_DIMS"]
-    output_dim = model_config["OUTPUT_DIM"]
-
-    model = MLP(input_dim, hidden_dims, output_dim).to(device)
-    criterion = nn.BCELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-    model.train()
-    for _ in range(epochs):
-        optimizer.zero_grad()
-        y_pred = model(X)
-        loss = criterion(y_pred, y)
-        loss.backward()
-        optimizer.step()
-    
-    return model
-
-def train_classifier(config, dataloader_train, dataloader_valid, log=False, save=False, save_dir="") -> Classifier:
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    experiment_name = config["EXPERIMENT_NAME"]
-    # Hyperparameters
-    hyperparameters = config["HYPERPARAMETERS"]
-    epochs = hyperparameters["EPOCHS"]
-    learning_rate = hyperparameters["LEARNING_RATE"]
-
-    model_config = config["MODEL"]
-    input_dim = model_config["INPUT_DIM"]
-    hidden_dims = model_config["HIDDEN_DIMS"]
-    output_dim = model_config["OUTPUT_DIM"]
-    dropout = model_config["DROPOUT"]
-
-    if(log):
-        cfg = {"experiment_name": experiment_name, "hyperparameter": hyperparameters, "model": model_config}
-        wandb.init(project=config["WANDB_PROJECT"], entity=config["WANDB_ENTITY"], config=cfg, name=experiment_name, group="angle_classifier")
-
-    model = Classifier(input_dim, hidden_dims, output_dim, dropout)
     model.to(device)
-    criterion = nn.BCELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    train_losses = []
+    valid_losses = []
 
     # Training
     for epoch in tqdm(range(epochs)):
@@ -137,8 +118,7 @@ def train_classifier(config, dataloader_train, dataloader_valid, log=False, save
         for X, y in dataloader_train:
             X = X.to(device)
             y = y.to(device)
-            y_pred = model(X.float())
-            y = torch.nn.functional.one_hot(y, output_dim).float()
+            y_pred = model(X)
             loss = criterion(y_pred, y)
             total_loss += loss.item()
             optimizer.zero_grad()
@@ -146,37 +126,45 @@ def train_classifier(config, dataloader_train, dataloader_valid, log=False, save
             optimizer.step()
 
         total_loss /= len(dataloader_train.dataset)
-        if(log):
-            wandb.log({"epoch": epoch, "train_loss": total_loss})
+        train_losses.append(total_loss)
+        wandb.log({"train_loss": total_loss})
 
-        total_loss = 0
-        model.eval()
-        for X, y in dataloader_valid:
-            X = X.to(device)
-            y = y.to(device)
-            y_pred = model(X.float())
-            y = torch.nn.functional.one_hot(y, num_classes=output_dim).float()
-            loss = criterion(y_pred, y)
-            total_loss += loss.item()
-        
-        total_loss /= len(dataloader_valid.dataset)
-        if(log):
-            wandb.log({"epoch": epoch, "valid_loss": total_loss})
+        if(dataloader_valid is not None):
+            total_loss = 0
+            model.eval()
+            for X, y in dataloader_valid:
+                X = X.to(device)
+                y = y.to(device)
+                y_pred = model(X.float())
+                loss = criterion(y_pred, y)
+                total_loss += loss.item()
+            
+            total_loss /= len(dataloader_valid.dataset)
+            valid_losses.append(total_loss)
+            wandb.log({"valid_loss": total_loss})
+    
+    return train_losses, valid_losses
 
-    if(save):
-        model_path = os.path.join(save_dir, f"{experiment_name}.pth")
-        torch.save(model.state_dict(), model_path)
+def get_accuracy(model: nn.Module, dataloader):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.to(device)
 
-    wandb.finish()
-    return model
-# if __name__ == "__main__":
-#     parser = ArgumentParser(description='Generate moons dataset classifier MLP zoo.')
-#     parser.add_argument('-c', '--config', help='Path to the config file.', required=True)
-#     args = parser.parse_args()
-#     default_dirs = get_default_dirs()
-#     config_path = args.config
-#     with open(config_path, 'r') as file:
-#         config = yaml.safe_load(file)
-#     wandb_config = dotenv_values(default_dirs["ENV_PATH"])
-#     config.update(wandb_config)
-#     train_zoo(config, default_dirs["MODELS_DIR"])
+    total_correct = 0
+    model.eval()
+    for X, y in dataloader:
+        X = X.to(device)
+        y = y.to(device)
+        y_pred = model(X.float())
+        # Accuracy
+        y = torch.argmax(y, dim=1)
+        y_pred = torch.argmax(y_pred, dim=1)
+        correct = (y_pred == y).sum()
+        total_correct += correct
+
+    accuracy_trained = total_correct / len(dataloader.dataset) * 100
+    return accuracy_trained.item()
+
+if __name__ == "__main__":    
+    angles = [0, 90, 180, 270]
+    model_accuracies = train_zoo(angles, 2000, "data/raw/moons.csv", "models/four_angles_zoo/")
+    print(model_accuracies)

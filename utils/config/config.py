@@ -1,29 +1,29 @@
 from pathlib import Path
 import yaml
-import os
 from dotenv import dotenv_values
 
 def get_default_dirs():
     ROOT_DIR = Path(__file__).parent.parent.parent
 
     default_dirs = {
-        "ROOT_DIR": ROOT_DIR,
-        "DATASETS_DIR": f"{ROOT_DIR}/data",
-        "MODELS_DIR": f"{ROOT_DIR}/models",
-        "CONFIGS_DIR": f"{ROOT_DIR}/utils/config/experiments",
+        "root_dir": ROOT_DIR,
+        "datasets_dir": f"{ROOT_DIR}/data",
+        "models_dir": f"{ROOT_DIR}/models",
+        "configs_dir": f"{ROOT_DIR}/configs/weight_classifiers",
 
-        "ENV_PATH": f"{ROOT_DIR}/.env",
+        "env_path": f"{ROOT_DIR}/.env",
     }
     return default_dirs
 
-def load_config(config_name, include_env=False):
+def load_env():
     default_dirs = get_default_dirs()
-    config_path = os.path.join(default_dirs['CONFIGS_DIR'], config_name)
+    env = dotenv_values(default_dirs["env_path"])
+    return env
+
+def load_config(config_name):
+    default_dirs = get_default_dirs()
+    config_path = Path(default_dirs['configs_dir']) / config_name
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
-
-    if include_env:
-        env = dotenv_values(default_dirs["ENV_PATH"])
-        config.update(env)
 
     return config

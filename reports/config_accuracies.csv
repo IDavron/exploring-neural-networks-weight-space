@@ -1,0 +1,5 @@
+config_name, model_name, accuracy
+config_12.yaml, unknown, 93.6375
+config_11.yaml, unknown, 88.40001
+config_10.yaml, unknown, 73.675
+config_7.yaml, unknown, 95.45
