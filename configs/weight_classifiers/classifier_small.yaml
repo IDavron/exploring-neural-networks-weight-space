@@ -1,21 +1,21 @@
-name: "classifier_7"
+name: "classifier_small"
 
 dataset:
-  name: "eight_angles.csv"
+  name: "eight_angles_small.csv"
   splits: [0.7, 0.2, 0.1]
   batch_size: 128
   seed: 42
 
 hyperparameters:
   epochs: 50
-  learning_rate: 0.02
+  learning_rate: 0.005
   optimizer: "adam"
   criterion: "bce"
   seed: 42
 
 model:
-  input_dim: 151
-  hidden_dims: [400, 200]
+  input_dim: 33
+  hidden_dims: [200, 100]
   output_dim: 8
   use_batch_norm: True
   dropout: 0.2

@@ -24,11 +24,11 @@ def zoo_to_csv(input_dir: str, output_path: str) -> None:
 
     # Model config
     input_dim = 2
-    hidden_dims = [10,10]
+    hidden_dims = [8]
     output_dim = 1
 
     with(open(output_path, "w")) as f:
-        fieldnames = [f"weight_{i}" for i in range(0, 151)]
+        fieldnames = [f"weight_{i}" for i in range(0, 33)]
         fieldnames.insert(0, "model_name")
         fieldnames.append("angle")
         writer = csv.writer(f, lineterminator = '\n')

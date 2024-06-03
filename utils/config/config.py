@@ -27,3 +27,8 @@ def load_config(config_name):
         config = yaml.safe_load(file)
 
     return config
+
+def get_config_path(config_name):
+    default_dirs = get_default_dirs()
+    config_path = Path(default_dirs['configs_dir']) / config_name
+    return config_path

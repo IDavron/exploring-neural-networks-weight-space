@@ -1,6 +1,7 @@
 venv
 models
 wandb
+data/*
 utils.egg-info
 __pycache__
 

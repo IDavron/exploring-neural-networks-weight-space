@@ -4,7 +4,7 @@ import numpy as np
 
 # Custom dataset with our model parameters
 class ModelParamsDataset(torch.utils.data.Dataset):
-    def __init__(self, dataset_path, angle_change: int = 90):
+    def __init__(self, dataset_path, angle_change: int = 45):
         self.dataset_path = dataset_path
         self.dataset = pd.read_csv(dataset_path)
         self.angle_change = angle_change
