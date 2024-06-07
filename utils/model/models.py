@@ -36,3 +36,36 @@ class MLP(nn.Module):
             x = self.dropout(hidden_layer(x))
         x = self.fc2(x)
         return self.output_activation(x)
+    
+
+class Autoencoder(nn.Module):
+    def __init__(self):
+        super(Autoencoder, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(33, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Linear(64, 16),
+            nn.ReLU(),
+            nn.Linear(16, 10),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.Linear(10, 16),
+            nn.ReLU(),
+            nn.Linear(16, 64),
+            nn.ReLU(),
+            nn.Linear(64, 256),
+            nn.ReLU(),
+            nn.Linear(256, 512),
+            nn.ReLU(),
+            nn.Linear(512, 33),
+        )
+    
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
