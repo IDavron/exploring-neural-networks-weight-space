@@ -2,7 +2,7 @@ venv
 models
 wandb
 data/*
-utils.egg-info
+src.egg-info
 __pycache__
 
 .env

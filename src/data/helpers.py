@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from utils.model.models import MLP
+from src.model.models import MLP
 import sklearn.datasets
 
 def get_moons_dataset(n_samples: int = 1000, noise: float = 0.1, random_state=42, normalize: bool = True) -> tuple:
@@ -63,3 +63,12 @@ def mlp_from_config(model_config: dict) -> MLP:
 
     model = MLP(input_dim, hidden_dims, output_dim, dropout, use_batch_norm, output_activation)
     return model
+
+def get_accuracy(model, X, y):
+    '''
+    Get the accuracy of a Moons classifier on a moons dataset.
+    '''
+    y_pred = model(torch.tensor(X).float()).squeeze().round().detach().numpy()
+    correct = (y_pred == y).sum()
+    accuracy = correct / len(y) * 100
+    return accuracy

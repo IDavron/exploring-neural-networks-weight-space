@@ -1,4 +1,6 @@
 import torch.nn as nn
+import torch
+
 # Model
 class MLP(nn.Module):
     def __init__(self, input_dim, hidden_dims, output_dim, dropout=0.0, use_batch_norm=False, output_activation="sigmoid"):
@@ -69,3 +71,50 @@ class Autoencoder(nn.Module):
         x = self.encoder(x)
         x = self.decoder(x)
         return x
+    
+
+
+class Variational(torch.nn.Module):
+    def __init__(self) -> None:
+        super(Variational, self).__init__()
+        
+        self.encoder = self.encoder = torch.nn.Sequential(
+            torch.nn.Linear(33, 512),
+            torch.nn.ReLU(),
+            torch.nn.Linear(512, 256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 64),
+            torch.nn.ReLU(),
+            torch.nn.Linear(64, 16),
+            torch.nn.ReLU(),
+            torch.nn.Linear(16, 10),
+        )
+
+        self.decoder = self.decoder = torch.nn.Sequential(
+            torch.nn.Linear(10, 16),
+            torch.nn.ReLU(),
+            torch.nn.Linear(16, 64),
+            torch.nn.ReLU(),
+            torch.nn.Linear(64, 256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 512),
+            torch.nn.ReLU(),
+            torch.nn.Linear(512, 33),
+        )
+
+        self.mean = torch.nn.Linear(10, 10)
+        self.log_var = torch.nn.Linear(10, 10)
+    
+    def reparameterize(self, mean, log_var):
+        var = torch.exp(0.5*log_var)
+        epsilon = torch.randn_like(var)     
+        latent = mean + var*epsilon
+        return latent
+
+    def forward(self, x):
+        latent = self.encoder(x)
+        mean = self.mean(latent)
+        log_var = self.log_var(latent)
+        x = self.reparameterize(mean, log_var)
+        output = self.decoder(x)
+        return output, mean, log_var

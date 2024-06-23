@@ -10,10 +10,10 @@ import torch.nn as nn
 from tqdm import tqdm
 import wandb
 
-from utils.model.models import MLP
+from src.model.models import MLP
 
 from pathlib import Path
-from utils.data.helpers import rotate, get_moons_dataset
+from src.data.helpers import rotate, get_moons_dataset
 
 def train_zoo(angles: list, models_per_angle: int, output_dir: str) -> list:
     '''

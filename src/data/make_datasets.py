@@ -1,7 +1,7 @@
 import torch
 
-from utils.model.models import MLP
-from utils.data.helpers import model_to_list
+from src.model.models import MLP
+from src.data.helpers import model_to_list
 
 import os
 import csv
