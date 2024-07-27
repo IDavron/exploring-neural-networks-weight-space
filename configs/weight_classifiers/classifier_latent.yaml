@@ -1,4 +1,4 @@
-name: "classifier_small"
+name: "classifier_latent"
 
 dataset:
   name: "eight_angles_small_latent.csv"

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', device="cpu"):
+def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', device="cpu", axis=True, title=None):
     '''
     Plot the decision boundary of a model.
 
@@ -37,6 +37,12 @@ def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', device="
     plt.scatter(class_2[0], class_2[1], color=color_map.colors[11], marker='x')
 
     plt.legend(["0","1"])
+
+    if title:
+        plt.title(title)
+    
+    if not axis:
+        plt.axis('off')
 
     plt.show()
     plt.close()

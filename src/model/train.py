@@ -127,7 +127,8 @@ def train_mlp(model: nn.Module, epochs: int, learning_rate: float, criterion, op
 
         total_loss /= len(dataloader_train.dataset)
         train_losses.append(total_loss)
-        wandb.log({"train_loss": total_loss})
+        if(log):
+            wandb.log({"train_loss": total_loss})
 
         if(dataloader_valid is not None):
             total_loss = 0
@@ -141,7 +142,8 @@ def train_mlp(model: nn.Module, epochs: int, learning_rate: float, criterion, op
             
             total_loss /= len(dataloader_valid.dataset)
             valid_losses.append(total_loss)
-            wandb.log({"valid_loss": total_loss})
+            if(log):
+                wandb.log({"valid_loss": total_loss})
     
     return train_losses, valid_losses
 

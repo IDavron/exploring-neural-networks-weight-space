@@ -1,22 +1,22 @@
-name: "classifier_small"
+name: "classifier_accuracy"
 
 dataset:
-  name: "eight_angles_small.csv"
-  splits: [0.5, 0.25, 0.25]
+  name: "accuracy.csv"
+  splits: [0.7, 0.2, 0.1]
   batch_size: 128
   seed: 42
 
 hyperparameters:
-  epochs: 20
+  epochs: 50
   learning_rate: 0.005
   optimizer: "adam"
-  criterion: "bce"
+  criterion: "mse"
   seed: 42
 
 model:
   input_dim: 33
-  hidden_dims: [50, 20]
-  output_dim: 8
+  hidden_dims: [200, 100]
+  output_dim: 1
   use_batch_norm: True
   dropout: 0.2
   output_activation: "softmax"
