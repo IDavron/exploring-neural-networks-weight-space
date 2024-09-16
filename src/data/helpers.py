@@ -3,6 +3,15 @@ import numpy as np
 from src.model.models import MLP
 import sklearn.datasets
 
+import json
+import logging
+import os
+from collections import defaultdict
+from pathlib import Path
+
+from src.data.datasets import ModelDataset, Batch
+
+
 def get_moons_dataset(n_samples: int = 1000, noise: float = 0.1, random_state=42, normalize: bool = True) -> tuple:
     X,y = sklearn.datasets.make_moons(n_samples=n_samples, noise=noise, random_state=random_state)
     if(normalize):
@@ -72,3 +81,55 @@ def get_accuracy(model, X, y):
     correct = (y_pred == y).sum()
     accuracy = correct / len(y) * 100
     return accuracy
+
+def generate_splits(data_path, save_path, name="dataset_splits.json", val_size=0):
+    '''
+    Generate a json file containing paths of all saved trained models. 
+    This file is used to create a dataset and dataloader later.
+    '''
+    save_path = Path(save_path) / name
+    inr_path = Path(data_path)
+    data_split = defaultdict(lambda: defaultdict(list))
+    for p in list(inr_path.glob("*.pth")):
+        angle = p.stem.split("_")[-2]
+        data_split["train"]["path"].append((os.getcwd() / p).as_posix())
+        data_split["train"]["angle"].append(angle)
+
+    logging.info(
+        f"train size: {len(data_split['train']['path'])}, "
+        f"val size: {len(data_split['val']['path'])}, test size: {len(data_split['test']['path'])}"
+    )
+
+    with open(save_path, "w") as file:
+        json.dump(data_split, file)
+
+
+def compute_stats(data_path: str, save_path: str, batch_size: int = 10000):
+    '''
+    Compute the mean and standard deviation of the weights and biases of a dataset. 
+    Needed later to normalize the data.
+    '''
+    train_set = ModelDataset(path=data_path, split="train")
+    train_loader = torch.utils.data.DataLoader(
+        dataset=train_set, batch_size=batch_size, shuffle=True, num_workers=8
+    )
+
+    batch: Batch = next(iter(train_loader))
+    weights_mean = [w.mean(0) for w in batch.weights]
+    weights_std = [w.std(0) for w in batch.weights]
+    biases_mean = [w.mean(0) for w in batch.biases]
+    biases_std = [w.std(0) for w in batch.biases]
+
+    statistics = {
+        "weights": {"mean": weights_mean, "std": weights_std},
+        "biases": {"mean": biases_mean, "std": biases_std},
+    }
+
+    out_path = Path(save_path)
+    out_path.mkdir(exist_ok=True, parents=True)
+    torch.save(statistics, out_path / "statistics.pth")
+
+
+if __name__ == "__main__":
+    # generate_splits("models/eight_angles_small", "data")
+    compute_stats("data/dataset_splits.json", "data")
