@@ -617,7 +617,7 @@ class WeightToWeightBlock(BaseLayer):
             set_layer=set_layer,
         )
         assert all([len(shape) == 2 for shape in shapes])
-        assert len(shapes) > 2
+        # assert len(shapes) > 2
 
         self.shapes = shapes
         self.n_layers = len(shapes)

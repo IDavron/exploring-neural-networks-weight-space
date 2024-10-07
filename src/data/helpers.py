@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from src.model.models import MLP
+from src.model.models import MLP, DBModel
 import sklearn.datasets
 
 import json
@@ -73,16 +73,22 @@ def mlp_from_config(model_config: dict) -> MLP:
     model = MLP(input_dim, hidden_dims, output_dim, dropout, use_batch_norm, output_activation)
     return model
 
-def get_accuracy(model, X, y):
+def get_accuracy(parameters, X, y):
     '''
     Get the accuracy of a Moons classifier on a moons dataset.
     '''
-    y_pred = model(torch.tensor(X).float()).squeeze().round().detach().numpy()
+    model = DBModel(False)
+    y_pred = model(parameters, X).squeeze().detach().round().numpy()
     correct = (y_pred == y).sum()
     accuracy = correct / len(y) * 100
     return accuracy
 
-def generate_splits(data_path, save_path, name="dataset_splits.json", val_size=0):
+
+
+# Source code from Equivariant Architectures for Learning in Deep Weight Spaces
+# https://github.com/AvivNavon/DWSNets
+
+def generate_splits(data_path, save_path, name="dataset_splits.json", total_size = 10000, val_size=0, test_size = 0):
     '''
     Generate a json file containing paths of all saved trained models. 
     This file is used to create a dataset and dataloader later.
@@ -90,10 +96,17 @@ def generate_splits(data_path, save_path, name="dataset_splits.json", val_size=0
     save_path = Path(save_path) / name
     inr_path = Path(data_path)
     data_split = defaultdict(lambda: defaultdict(list))
-    for p in list(inr_path.glob("*.pth")):
+    for i, p in enumerate(list(inr_path.glob("*.pth"))):
         angle = p.stem.split("_")[-2]
-        data_split["train"]["path"].append((os.getcwd() / p).as_posix())
-        data_split["train"]["angle"].append(angle)
+        if(i % total_size >= total_size - val_size):
+            s = "val"
+        elif((i % total_size >= total_size - val_size - test_size) and (i % total_size < total_size - val_size)):
+            s = "test"
+        else:
+            s = "train"
+
+        data_split[s]["path"].append((os.getcwd() / p).as_posix())
+        data_split[s]["angle"].append(angle)
 
     logging.info(
         f"train size: {len(data_split['train']['path'])}, "

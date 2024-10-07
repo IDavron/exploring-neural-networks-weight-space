@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from src.data.helpers import rotate
+from src.model.models import DBModel
 
-def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', device="cpu", axis=True, title=None):
+def plot_decision_boundary(parameters, X, y, steps=1000, color_map='Paired', axis=True, title=None):
     '''
     Plot the decision boundary of a model.
 
@@ -13,6 +15,8 @@ def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', device="
         color_map (str): The color map to use.
         device (str): The device to use.
     '''
+    model = DBModel(False)
+
     x_min = X[:, 0].min() - 1
     x_max = X[:, 0].max() + 1
     y_min = X[:, 1].min() - 1
@@ -20,10 +24,9 @@ def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', device="
 
     xx, yy = np.meshgrid(np.linspace(x_min, x_max, steps), np.linspace(y_min, y_max, steps))
     X_grid = np.c_[xx.ravel(), yy.ravel()]
+    X_grid = torch.from_numpy(X_grid).float()
 
-    model.to(device)
-    model.eval()
-    y_boundary = model(torch.from_numpy(X_grid).float().to(device)).detach().numpy().round()
+    y_boundary = model(parameters, X_grid).detach().numpy().round()
     y_boundary = np.array(y_boundary).reshape(xx.shape)
 
     color_map = plt.get_cmap(color_map)
@@ -46,3 +49,23 @@ def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', device="
 
     plt.show()
     plt.close()
+
+
+def plot_interpolation(model, datapoint_1, datapoint_2, X, y, alpha):
+    parameters_1, angle_1 = datapoint_1
+    parameters_2, angle_2 = datapoint_2
+
+    parameters_1 = parameters_1.unsqueeze(0)
+    parameters_2 = parameters_2.unsqueeze(0)
+
+    latent_1 = model.encoder(parameters_1)
+    latent_2 = model.encoder(parameters_2)
+
+    latent = (1-alpha)*latent_1 + alpha*latent_2
+    w = model.decoder(latent).squeeze()
+
+    angle = (1-alpha)*angle_1 + alpha*angle_2
+    X_rotated = rotate(X, angle)
+    X_rotated = torch.tensor(X_rotated).float()
+
+    plot_decision_boundary(w, X_rotated, y)

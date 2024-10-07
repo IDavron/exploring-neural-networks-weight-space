@@ -20,8 +20,7 @@ class ModelParamsDataset(torch.utils.data.Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
         weights = torch.tensor(self.weights.iloc[idx].values)
-        angle = torch.tensor(self.angles.iloc[idx]/self.angle_change, dtype=torch.int64)
-        angle = torch.nn.functional.one_hot(angle, num_classes=int(360/self.angle_change)).float()
+        angle = torch.tensor(self.angles.iloc[idx], dtype=torch.int64)
 
         return weights, angle
     
@@ -34,6 +33,10 @@ class ModelParamsDataset(torch.utils.data.Dataset):
     def denormalize(self, weights):
         return weights * (self.max_weight - self.min_weight) + self.min_weight
     
+
+
+# Source code from Equivariant Architectures for Learning in Deep Weight Spaces
+# https://github.com/AvivNavon/DWSNets
 
 class Batch(NamedTuple):
     weights: Tuple
@@ -87,29 +90,6 @@ class ModelDataset(torch.utils.data.Dataset):
 
         return weights, biases
 
-    @staticmethod
-    def _permute(weights, biases):
-        new_weights = [None] * len(weights)
-        new_biases = [None] * len(biases)
-        assert len(weights) == len(biases)
-
-        perms = []
-        for i, w in enumerate(weights):
-            if i != len(weights) - 1:
-                perms.append(torch.randperm(w.shape[1]))
-
-        for i, (w, b) in enumerate(zip(weights, biases)):
-            if i == 0:
-                new_weights[i] = w[:, perms[i], :]
-                new_biases[i] = b[perms[i], :]
-            elif i == len(weights) - 1:
-                new_weights[i] = w[perms[-1], :, :]
-                new_biases[i] = b
-            else:
-                new_weights[i] = w[perms[i - 1], :, :][:, perms[i], :]
-                new_biases[i] = b[perms[i], :]
-        return new_weights, new_biases
-
     def __getitem__(self, item):
         path = self.dataset["path"][item]
         state_dict = torch.load(path, map_location=lambda storage, loc: storage)
@@ -118,7 +98,10 @@ class ModelDataset(torch.utils.data.Dataset):
             [v.permute(1, 0) for w, v in state_dict.items() if "weight" in w]
         )
         biases = tuple([v for w, v in state_dict.items() if "bias" in w])
-        label = int(self.dataset["angle"][item])
+        label = int(int(self.dataset["angle"][item]) / 45)
+        label = torch.nn.functional.one_hot(
+            torch.tensor(label), num_classes=8
+        ).float()
 
         # add feature dim
         weights = tuple([w.unsqueeze(-1) for w in weights])
@@ -126,9 +109,6 @@ class ModelDataset(torch.utils.data.Dataset):
 
         if self.normalize:
             weights, biases = self._normalize(weights, biases)
-
-        if self.permutation:
-            weights, biases = self._permute(weights, biases)
 
         return Batch(weights=weights, biases=biases, label=label)
 

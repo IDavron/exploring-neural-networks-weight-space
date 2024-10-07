@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 
 from typing import Tuple
-from src.model.layers.layers import BN, DownSampleDWSLayer, Dropout, DWSLayer, InvariantLayer, ReLU
+from src.model.layers.layers import BN, DownSampleDWSLayer, Dropout, DWSLayer, InvariantLayer, ReLU, NaiveInvariantLayer
 
 # Model
 class MLP(nn.Module):
@@ -42,87 +42,97 @@ class MLP(nn.Module):
         x = self.fc2(x)
         return self.output_activation(x)
     
-
-class Autoencoder(nn.Module):
-    def __init__(self):
-        super(Autoencoder, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Linear(33, 512),
-            nn.ReLU(),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Linear(256, 64),
-            nn.ReLU(),
-            nn.Linear(64, 16),
-            nn.ReLU(),
-            nn.Linear(16, 10),
-        )
-
-        self.decoder = nn.Sequential(
-            nn.Linear(10, 16),
-            nn.ReLU(),
-            nn.Linear(16, 64),
-            nn.ReLU(),
-            nn.Linear(64, 256),
-            nn.ReLU(),
-            nn.Linear(256, 512),
-            nn.ReLU(),
-            nn.Linear(512, 33),
-        )
-    
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-        return x
-    
-
-
-class Variational(torch.nn.Module):
-    def __init__(self) -> None:
-        super(Variational, self).__init__()
         
-        self.encoder = self.encoder = torch.nn.Sequential(
-            torch.nn.Linear(33, 512),
+    
+
+class Autoencoder(torch.nn.Module):
+    def __init__(self) -> None:
+        super(Autoencoder, self).__init__()
+        
+        self.encoder = torch.nn.Sequential(
+            torch.nn.Linear(33, 1024),
             torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(1024),
+            torch.nn.Linear(1024, 512),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(512),
             torch.nn.Linear(512, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 64),
+            torch.nn.BatchNorm1d(256),
+            torch.nn.Linear(256, 128),
             torch.nn.ReLU(),
-            torch.nn.Linear(64, 16),
-            torch.nn.ReLU(),
-            torch.nn.Linear(16, 10),
+            torch.nn.BatchNorm1d(128),
+            torch.nn.Linear(128, 16),
+            torch.nn.Tanh(),
         )
 
-        self.decoder = self.decoder = torch.nn.Sequential(
-            torch.nn.Linear(10, 16),
+        self.decoder = torch.nn.Sequential(
+            torch.nn.Linear(16, 128),
             torch.nn.ReLU(),
-            torch.nn.Linear(16, 64),
+            torch.nn.BatchNorm1d(128),
+            torch.nn.Linear(128, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(64, 256),
-            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(256),
             torch.nn.Linear(256, 512),
             torch.nn.ReLU(),
-            torch.nn.Linear(512, 33),
+            torch.nn.BatchNorm1d(512),
+            torch.nn.Linear(512, 1024),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(1024),
+            torch.nn.Linear(1024, 33),
         )
-
-        self.mean = torch.nn.Linear(10, 10)
-        self.log_var = torch.nn.Linear(10, 10)
-    
-    def reparameterize(self, mean, log_var):
-        var = torch.exp(0.5*log_var)
-        epsilon = torch.randn_like(var)     
-        latent = mean + var*epsilon
-        return latent
 
     def forward(self, x):
         latent = self.encoder(x)
-        mean = self.mean(latent)
-        log_var = self.log_var(latent)
-        x = self.reparameterize(mean, log_var)
-        output = self.decoder(x)
-        return output, mean, log_var
+        output = self.decoder(latent)
+        return output
+
     
 
+# Decision Boundary Loss Models
+
+class DBModel(nn.Module):
+    '''
+    Model to classify the input with given parameters.
+    Parameters:
+        autoencoder (nn.Module): The autoencoder to use for the parameters.
+        use_autoencoder (bool): Whether to use the autoencoder or not.
+    '''
+    def __init__(self, batch_first=True) -> None:
+        super(DBModel, self).__init__()
+
+        self.batch_first = batch_first
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, parameters, input):
+        if(self.batch_first):
+            weights_1 = parameters[:, :16].reshape(-1, 8, 2).transpose(1, 2)
+            bias_1 = parameters[:, 16:24].reshape(-1, 8)
+            weights_2 = parameters[:, 24:32].reshape(-1, 1,8).transpose(1, 2)
+            bias_2 = parameters[:, 32:33].reshape(-1, 1)
+
+            bias_1 = bias_1.unsqueeze(1).repeat(1, input.shape[1], 1)
+            bias_2 = bias_2.unsqueeze(1).repeat(1, input.shape[1], 1)
+        
+            x = torch.bmm(input, weights_1) + bias_1
+            x = self.relu(x)
+
+            x = torch.bmm(x, weights_2) + bias_2
+        else:
+            weights_1 = parameters[:16].reshape(8, 2).T
+            bias_1 = parameters[16:24].reshape(8)
+            weights_2 = parameters[24:32].reshape(1,8).T
+            bias_2 = parameters[32:33].reshape(1)
+
+            x = torch.matmul(input, weights_1) + bias_1
+            x = self.relu(x)
+
+            x = torch.matmul(x, weights_2) + bias_2
+
+
+        x = self.sigmoid(x) 
+        return x
 
 # Source code from Equivariant Architectures for Learning in Deep Weight Spaces
 # https://github.com/AvivNavon/DWSNets
@@ -156,7 +166,7 @@ class DWSModel(nn.Module):
             diagonal=False,
     ):
         super().__init__()
-        assert len(weight_shapes) > 2, "the current implementation only support input networks with M>2 layers."
+        # assert len(weight_shapes) > 2, "the current implementation only support input networks with M>2 layers."
 
         self.input_features = input_features
         self.input_dim_downsample = input_dim_downsample
@@ -331,7 +341,7 @@ class DWSModelForClassification(nn.Module):
         )
         self.dropout = Dropout(dropout_rate)
         self.relu = ReLU()
-        self.clf = InvariantLayer(
+        self.clf = NaiveInvariantLayer(
             weight_shapes=weight_shapes,
             bias_shapes=bias_shapes,
             in_features=hidden_dim
@@ -342,11 +352,14 @@ class DWSModelForClassification(nn.Module):
             n_fc_layers=n_out_fc,
         )
 
+        self.softmax = nn.Softmax(dim=1)
+
     def forward(
         self, x: Tuple[Tuple[torch.tensor], Tuple[torch.tensor]], return_equiv=False
     ):
         x = self.layers(x)
         out = self.clf(self.dropout(self.relu(x)))
+        # out = self.softmax(out)
         if return_equiv:
             return out, x
         else:
