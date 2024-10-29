@@ -42,43 +42,106 @@ class MLP(nn.Module):
         x = self.fc2(x)
         return self.output_activation(x)
     
-        
-    
 
-class Autoencoder(torch.nn.Module):
-    def __init__(self) -> None:
+class VAE(nn.Module):
+    def __init__(self, latent_dim, dropout=0.0) -> None:
+        super(VAE, self).__init__()
+        self.encoder = nn.Sequential(
+            torch.nn.Linear(33, 1024),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(1024),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(1024, 512),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(512),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(512, 256),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(256),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(256, 128),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(128),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(128, latent_dim),
+        )
+        self.mu = nn.Linear(latent_dim, latent_dim)
+        self.logvar = nn.Linear(latent_dim, latent_dim)
+        self.decoder = nn.Sequential(
+            torch.nn.Linear(latent_dim, 128),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(128),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(128, 256),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(256),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(256, 512),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(512),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(512, 1024),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(1024),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(1024, 33),
+        )
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return mu + eps*std
+
+    def forward(self, x):
+        h = self.encoder(x)
+        mu = self.mu(h)
+        logvar = self.logvar(h)
+        z = self.reparameterize(mu, logvar)
+        return self.decoder(z), mu, logvar
+
+
+
+class Autoencoder(nn.Module):
+    def __init__(self, latent_dim, dropout=0.0) -> None:
         super(Autoencoder, self).__init__()
         
         self.encoder = torch.nn.Sequential(
             torch.nn.Linear(33, 1024),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(1024),
+            torch.nn.Dropout(dropout),
             torch.nn.Linear(1024, 512),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(512),
+            torch.nn.Dropout(dropout),
             torch.nn.Linear(512, 256),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(256),
+            torch.nn.Dropout(dropout),
             torch.nn.Linear(256, 128),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(128),
-            torch.nn.Linear(128, 16),
-            torch.nn.Tanh(),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(128, latent_dim),
         )
 
         self.decoder = torch.nn.Sequential(
-            torch.nn.Linear(16, 128),
+            torch.nn.Linear(latent_dim, 128),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(128),
+            torch.nn.Dropout(dropout),
             torch.nn.Linear(128, 256),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(256),
+            torch.nn.Dropout(dropout),
             torch.nn.Linear(256, 512),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(512),
+            torch.nn.Dropout(dropout),
             torch.nn.Linear(512, 1024),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(1024),
+            torch.nn.Dropout(dropout),
             torch.nn.Linear(1024, 33),
         )
 
@@ -87,7 +150,55 @@ class Autoencoder(torch.nn.Module):
         output = self.decoder(latent)
         return output
 
-    
+
+class TSModel(nn.Module):
+    def __init__(self, latent_dim, dropout=0.0) -> None:
+        super(TSModel, self).__init__()
+        
+        self.encoder = torch.nn.Sequential(
+            torch.nn.Linear(33, 1024),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(1024),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(1024, 512),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(512),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(512, 256),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(256),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(256, 128),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(128),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(128, latent_dim),
+        )
+
+        self.decoder = torch.nn.Sequential(
+            torch.nn.Linear(latent_dim, 128),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(128),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(128, 256),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(256),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(256, 512),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(512),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(512, 1024),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(1024),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(1024, 17),
+        )
+
+    def forward(self, x):
+        latent = self.encoder(x)
+        output = self.decoder(latent)
+        return output
 
 # Decision Boundary Loss Models
 
@@ -124,6 +235,49 @@ class DBModel(nn.Module):
             bias_1 = parameters[16:24].reshape(8)
             weights_2 = parameters[24:32].reshape(1,8).T
             bias_2 = parameters[32:33].reshape(1)
+
+            x = torch.matmul(input, weights_1) + bias_1
+            x = self.relu(x)
+
+            x = torch.matmul(x, weights_2) + bias_2
+
+
+        x = self.sigmoid(x) 
+        return x
+    
+class SModel(nn.Module):
+    '''
+    Model to classify the input with given parameters.
+    Parameters:
+        autoencoder (nn.Module): The autoencoder to use for the parameters.
+        use_autoencoder (bool): Whether to use the autoencoder or not.
+    '''
+    def __init__(self, batch_first=True) -> None:
+        super(SModel, self).__init__()
+
+        self.batch_first = batch_first
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, parameters, input):
+        if(self.batch_first):
+            weights_1 = parameters[:, :8].reshape(-1, 4, 2).transpose(1, 2)
+            bias_1 = parameters[:, 8:12].reshape(-1, 4)
+            weights_2 = parameters[:, 12:16].reshape(-1, 1, 4).transpose(1, 2)
+            bias_2 = parameters[:, 16:17].reshape(-1, 1)
+
+            bias_1 = bias_1.unsqueeze(1).repeat(1, input.shape[1], 1)
+            bias_2 = bias_2.unsqueeze(1).repeat(1, input.shape[1], 1)
+        
+            x = torch.bmm(input, weights_1) + bias_1
+            x = self.relu(x)
+
+            x = torch.bmm(x, weights_2) + bias_2
+        else:
+            weights_1 = parameters[:8].reshape(4, 2).T
+            bias_1 = parameters[8:12].reshape(4)
+            weights_2 = parameters[12:16].reshape(1, 4).T
+            bias_2 = parameters[16:17].reshape(1)
 
             x = torch.matmul(input, weights_1) + bias_1
             x = self.relu(x)
