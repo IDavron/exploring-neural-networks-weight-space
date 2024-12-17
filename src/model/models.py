@@ -42,7 +42,7 @@ class MLP(nn.Module):
         x = self.fc2(x)
         return self.output_activation(x)
     
-
+# Atuoencoder Models
 class VAE(nn.Module):
     def __init__(self, latent_dim, dropout=0.0) -> None:
         super(VAE, self).__init__()
@@ -98,7 +98,6 @@ class VAE(nn.Module):
         logvar = self.logvar(h)
         z = self.reparameterize(mu, logvar)
         return self.decoder(z), mu, logvar
-
 
 
 class Autoencoder(nn.Module):
@@ -200,6 +199,74 @@ class TSModel(nn.Module):
         output = self.decoder(latent)
         return output
 
+# Flow Matching Model
+class Flow(nn.Module):
+    def __init__(self, input_dim = 36, output_dim = 33, hidden_dim=512, n_hidden=2):
+        super(Flow, self).__init__()
+
+
+        self.layers = []
+        self.layers.append(nn.Linear(input_dim, hidden_dim))
+        self.layers.append(nn.SELU())
+
+        for i in range(n_hidden):
+            self.layers.append(nn.Linear(hidden_dim, hidden_dim))
+            self.layers.append(nn.SELU())
+        
+        self.layers.append(nn.Linear(hidden_dim, output_dim))
+
+        self.layers = nn.Sequential(*self.layers)
+
+    def forward(self, x):
+        return self.layers(x)
+
+# Diffusion Model
+class SinusoidalEmbedding(nn.Module):
+    '''Taken from Tiny Diffusion repository: https://github.com/tanelp/tiny-diffusion'''
+    def __init__(self, size: int, scale: float = 1.0):
+        super().__init__()
+        self.size = size
+        self.scale = scale
+
+    def forward(self, x: torch.Tensor):
+        x = x * self.scale
+        half_size = self.size // 2
+        emb = torch.log(torch.Tensor([10000.0])) / (half_size - 1)
+        emb = torch.exp(-emb * torch.arange(half_size))
+        emb = emb.to(x.device)
+        emb = x.unsqueeze(-1) * emb.unsqueeze(0)
+        emb = torch.cat((torch.sin(emb), torch.cos(emb)), dim=-1)
+        return emb
+
+    def __len__(self):
+        return self.size
+    
+
+class Diffusion(nn.Module):
+    def __init__(self, input_dim = 163, output_dim = 33, hidden_dim = 1024, n_hidden = 4):
+        super().__init__()
+
+        self.time_mlp = SinusoidalEmbedding(128)
+
+        self.layers = []
+        self.layers.append(nn.Linear(input_dim, hidden_dim))
+        self.layers.append(nn.GELU())
+
+        for i in range(n_hidden):
+            self.layers.append(nn.Linear(hidden_dim, hidden_dim))
+            self.layers.append(nn.GELU())
+        
+        self.layers.append(nn.Linear(hidden_dim, output_dim))
+
+        self.layers = nn.Sequential(*self.layers)
+
+    def forward(self, x, t, angle):
+        t_emb = self.time_mlp(t)
+        x = torch.cat((x, t_emb, angle), dim=-1)
+        
+        x = self.layers(x)
+        return x
+
 # Decision Boundary Loss Models
 
 class DBModel(nn.Module):
@@ -244,7 +311,8 @@ class DBModel(nn.Module):
 
         x = self.sigmoid(x) 
         return x
-    
+
+
 class SModel(nn.Module):
     '''
     Model to classify the input with given parameters.

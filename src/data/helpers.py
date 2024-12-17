@@ -1,16 +1,21 @@
 import torch
+import torch.nn.functional as F
+
 import numpy as np
-from src.model.models import MLP, DBModel
 import sklearn.datasets
+
+from src.model.models import MLP, DBModel
+from src.data.datasets import ModelDataset, Batch
 
 import json
 import logging
 import os
+import math
 from collections import defaultdict
 from pathlib import Path
 
-from src.data.datasets import ModelDataset, Batch
 
+gaussian = torch.distributions.multivariate_normal.MultivariateNormal(torch.zeros(33), math.sqrt(1) * torch.eye(33))
 
 def get_moons_dataset(n_samples: int = 1000, noise: float = 0.1, random_state=42, normalize: bool = True) -> tuple:
     X,y = sklearn.datasets.make_moons(n_samples=n_samples, noise=noise, random_state=random_state)
@@ -44,7 +49,6 @@ def model_to_list(model) -> np.array:
         trainable_parameters = np.append(trainable_parameters, param.data.flatten().numpy())
     
     return trainable_parameters
-
 
 def list_to_model(model, list) -> None:
     '''
@@ -82,7 +86,6 @@ def get_accuracy(parameters, X, y):
     correct = (y_pred == y).sum()
     accuracy = correct / len(y) * 100
     return accuracy
-
 
 
 # Source code from Equivariant Architectures for Learning in Deep Weight Spaces
@@ -142,6 +145,91 @@ def compute_stats(data_path: str, save_path: str, batch_size: int = 10000):
     out_path.mkdir(exist_ok=True, parents=True)
     torch.save(statistics, out_path / "statistics.pth")
 
+
+# For diffusion model
+def add_noise(x_0, noise, alphas_cumprod, t):
+    sqrt_alphas_cumprod = alphas_cumprod ** 0.5
+    sqrt_one_minus_alphas_cumprod = (1 - alphas_cumprod) ** 0.5
+
+    s1 = sqrt_alphas_cumprod[t]
+    s2 = sqrt_one_minus_alphas_cumprod[t]
+
+    s1 = s1.reshape(-1, 1)
+    s2 = s2.reshape(-1, 1)
+
+    return s1*x_0 + s2*noise
+
+def reconstruct_xt(noise, x_t, t, betas):
+        alphas = 1.0 - betas
+        alphas_cumprod = torch.cumprod(alphas, axis=0)
+        alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.)
+
+        sqrt_inv_alphas_cumprod = torch.sqrt(1 / alphas_cumprod)
+        sqrt_inv_alphas_cumprod_minus_one = torch.sqrt(1 / alphas_cumprod - 1)
+
+        posterior_mean_coef1 = betas * torch.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod)
+        posterior_mean_coef2 = (1. - alphas_cumprod_prev) * torch.sqrt(alphas) / (1. - alphas_cumprod)
+
+        s1 = sqrt_inv_alphas_cumprod[t]
+        s2 = sqrt_inv_alphas_cumprod_minus_one[t]
+        s1 = s1.reshape(-1, 1)
+        s2 = s2.reshape(-1, 1)
+        pred_x0 = s1 * x_t - s2 * noise
+
+        posterior_mean_coef1 = betas * torch.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod)
+        posterior_mean_coef2 = (1. - alphas_cumprod_prev) * torch.sqrt(alphas) / (1. - alphas_cumprod)
+        s1 = posterior_mean_coef1[t]
+        s2 = posterior_mean_coef2[t]
+        s1 = s1.reshape(-1, 1)
+        s2 = s2.reshape(-1, 1)
+        x_t = s1 * pred_x0 + s2 * x_t
+
+        variance = 0
+        if t > 0:
+            variance = betas[t] * (1. - alphas_cumprod_prev[t]) / (1. - alphas_cumprod[t])
+            variance = variance.clip(1e-20)
+            noise = torch.randn_like(noise)
+            variance = (variance ** 0.5) * noise
+
+        pred_prev_sample = x_t + variance
+
+        return pred_prev_sample
+
+
+# Generation functions
+def generate_flow(model, angle, prior_dim=33, prior_sd=1, num_iter=100):
+    gaussian = torch.distributions.multivariate_normal.MultivariateNormal(torch.zeros(prior_dim), math.sqrt(prior_sd) * torch.eye(prior_dim))
+
+    x = gaussian.sample((1,))
+    angle = torch.tensor([angle*torch.pi/180])
+    for i in np.linspace(0, 1, num_iter, endpoint=False):
+        t = torch.tensor([i], dtype=torch.float32)
+        sin = torch.sin(angle)
+        cos = torch.cos(angle)
+        path = model(torch.cat([x, t[:, None], sin[:, None], cos[:, None]], dim=-1))
+        x += (0.01 * path)
+    return x.detach()[0]
+
+def generate_diffusion(model, angle, num_timesteps=1000, betas=None):
+    if(betas is None):
+        betas = torch.tensor(np.linspace(1e-4, 0.02, num_timesteps), dtype=torch.float32)
+    else:
+        betas = betas
+
+    a = torch.tensor([angle * np.pi / 180])
+    sin = torch.sin(a)
+    cos = torch.cos(a)
+    a = torch.cat([sin[None, :], cos[None, :]], dim=1)
+
+    sample = torch.randn(1, 33)
+    timesteps = list(range(num_timesteps))[::-1]
+    for i, t in enumerate(timesteps):
+        t = torch.from_numpy(np.repeat(t, 1)).long()
+        with torch.no_grad():
+            residual = model(sample, t, a)
+        sample = reconstruct_xt(residual, sample, t[0], betas)
+
+    return sample[0]
 
 if __name__ == "__main__":
     # generate_splits("models/eight_angles_small", "data")

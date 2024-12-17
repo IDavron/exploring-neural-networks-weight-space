@@ -118,6 +118,7 @@ def train_mlp(model: nn.Module, epochs: int, learning_rate: float, criterion, op
         for X, y in dataloader_train:
             X = X.to(device)
             y = y.to(device)
+
             y_pred = model(X)
             loss = criterion(y_pred, y)
             total_loss += loss.item()
@@ -136,6 +137,7 @@ def train_mlp(model: nn.Module, epochs: int, learning_rate: float, criterion, op
             for X, y in dataloader_valid:
                 X = X.to(device)
                 y = y.to(device)
+
                 y_pred = model(X.float())
                 loss = criterion(y_pred, y)
                 total_loss += loss.item()

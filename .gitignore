@@ -1,5 +1,5 @@
 venv
-models
+models/*
 wandb
 data/*
 src.egg-info
