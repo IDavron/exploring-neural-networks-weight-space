@@ -1,7 +1,7 @@
-name: "classifier"
+name: "classifier_medium"
 
 dataset:
-  name: "eight_angles.csv"
+  name: "eight_angles_medium.csv"
   splits: [0.7, 0.2, 0.1]
   batch_size: 128
   seed: 42

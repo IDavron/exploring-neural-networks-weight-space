@@ -91,15 +91,15 @@ def get_accuracy(parameters, X, y):
 # Source code from Equivariant Architectures for Learning in Deep Weight Spaces
 # https://github.com/AvivNavon/DWSNets
 
-def generate_splits(data_path, save_path, name="dataset_splits.json", total_size = 10000, val_size=0, test_size = 0):
+def generate_splits(models_path, save_path, name="dataset_splits.json", total_size = 10000, val_size=0, test_size = 0):
     '''
     Generate a json file containing paths of all saved trained models. 
     This file is used to create a dataset and dataloader later.
     '''
     save_path = Path(save_path) / name
-    inr_path = Path(data_path)
+    models_path = Path(models_path)
     data_split = defaultdict(lambda: defaultdict(list))
-    for i, p in enumerate(list(inr_path.glob("*.pth"))):
+    for i, p in enumerate(list(models_path.glob("*.pth"))):
         angle = p.stem.split("_")[-2]
         if(i % total_size >= total_size - val_size):
             s = "val"
@@ -120,7 +120,7 @@ def generate_splits(data_path, save_path, name="dataset_splits.json", total_size
         json.dump(data_split, file)
 
 
-def compute_stats(data_path: str, save_path: str, batch_size: int = 10000):
+def compute_stats(data_path: str, save_path: str, batch_size: int = 10000, name="statistics.pth"):
     '''
     Compute the mean and standard deviation of the weights and biases of a dataset. 
     Needed later to normalize the data.
@@ -143,7 +143,7 @@ def compute_stats(data_path: str, save_path: str, batch_size: int = 10000):
 
     out_path = Path(save_path)
     out_path.mkdir(exist_ok=True, parents=True)
-    torch.save(statistics, out_path / "statistics.pth")
+    torch.save(statistics, out_path / name)
 
 
 # For diffusion model
@@ -200,17 +200,17 @@ def reconstruct_xt(noise, x_t, t, betas):
 def generate_flow(model, angle, prior_dim=33, prior_sd=1, num_iter=100):
     gaussian = torch.distributions.multivariate_normal.MultivariateNormal(torch.zeros(prior_dim), math.sqrt(prior_sd) * torch.eye(prior_dim))
 
-    x = gaussian.sample((1,))
+    sample = gaussian.sample((1,))
     angle = torch.tensor([angle*torch.pi/180])
     for i in np.linspace(0, 1, num_iter, endpoint=False):
         t = torch.tensor([i], dtype=torch.float32)
         sin = torch.sin(angle)
         cos = torch.cos(angle)
-        path = model(torch.cat([x, t[:, None], sin[:, None], cos[:, None]], dim=-1))
-        x += (0.01 * path)
-    return x.detach()[0]
+        path = model(torch.cat([sample, t[:, None], sin[:, None], cos[:, None]], dim=-1))
+        sample += (0.01 * path)
+    return sample[0]
 
-def generate_diffusion(model, angle, num_timesteps=1000, betas=None):
+def generate_diffusion(model, angle, num_timesteps=1000, betas=None, prior_dim=33):
     if(betas is None):
         betas = torch.tensor(np.linspace(1e-4, 0.02, num_timesteps), dtype=torch.float32)
     else:
@@ -221,7 +221,7 @@ def generate_diffusion(model, angle, num_timesteps=1000, betas=None):
     cos = torch.cos(a)
     a = torch.cat([sin[None, :], cos[None, :]], dim=1)
 
-    sample = torch.randn(1, 33)
+    sample = torch.randn(1, prior_dim)
     timesteps = list(range(num_timesteps))[::-1]
     for i, t in enumerate(timesteps):
         t = torch.from_numpy(np.repeat(t, 1)).long()
@@ -234,3 +234,93 @@ def generate_diffusion(model, angle, num_timesteps=1000, betas=None):
 if __name__ == "__main__":
     # generate_splits("models/eight_angles_small", "data")
     compute_stats("data/dataset_splits.json", "data")
+
+
+@torch.no_grad()
+def evaluate_dwsnets(model, loader, device=torch.device("cuda")):
+    '''
+    Evaluate function for DWSNets model
+
+    Args:
+        model (nn.Module): The dwsnets model to evaluate.
+        loader (DataLoader): The dataloader for the dataset.
+        device (str): The device to run the evaluation on.
+    
+    Returns:
+        dict: A dictionary containing the average loss(avg_loss), average accuracy(avg_acc), predicted labels(predicted) and ground truth labels(gt).
+    '''
+    model.eval()
+    loss = 0.0
+    correct = 0.0
+    total = 0.0
+    predicted, gt = [], []
+    for batch in loader:
+        batch = batch.to(device)
+        inputs = (batch.weights, batch.biases)
+        out = model(inputs)
+        loss += F.cross_entropy(out, batch.label, reduction="sum")
+        total += len(batch.label)
+        pred = out.argmax(1)
+        label = batch.label.argmax(1)
+        correct += pred.eq(label).sum()
+        predicted.extend(pred.cpu().numpy().tolist())
+        gt.extend(batch.label.cpu().numpy().tolist())
+
+    model.train()
+    avg_loss = loss / total
+    avg_acc = correct / total
+
+    return dict(avg_loss=avg_loss, avg_acc=avg_acc, predicted=predicted, gt=gt)
+
+def get_accuracy_st(model, dataloader, emb=None):
+    '''
+        Get the accuracy of a Set Transformer model on the dataloader.
+    '''
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    total_correct = 0
+    model.eval()
+    for X, y in dataloader:
+        X = X.unsqueeze(2)
+        if(emb is not None):
+            emb_batch = emb.repeat(X.shape[0], 1, 1)
+            X = torch.cat([emb_batch, X], dim=2)
+        X = X.to(device)
+        y = y.to(device)
+
+        y_pred = model(X.float())
+        # Accuracy
+        y = torch.argmax(y, dim=1)
+        y_pred = torch.argmax(y_pred, dim=1)
+        correct = (y_pred == y).sum()
+        total_correct += correct
+
+    accuracy_trained = total_correct / len(dataloader.dataset) * 100
+    return accuracy_trained.item()
+
+def get_accuracy_mlp(model, dataloader, device=None):
+    if(device is None):
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    total_correct = 0
+    model.eval()
+    for X, y in dataloader:
+        X = X.to(device)
+        y = y.to(device)
+        y_pred = model(X.float())
+        # Accuracy
+        y = torch.argmax(y, dim=1)
+        y_pred = torch.argmax(y_pred, dim=1)
+        correct = (y_pred == y).sum()
+        total_correct += correct
+
+    accuracy_trained = total_correct / len(dataloader.dataset) * 100
+    return accuracy_trained.item()
+
+def find_closest_vectors(X, Y):
+    distances = torch.cdist(X, Y)
+    closest_vals, closest_indices = distances.min(dim=1)
+    closest_vectors = Y[closest_indices]
+
+    return closest_vals, closest_vectors

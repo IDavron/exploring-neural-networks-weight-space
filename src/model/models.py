@@ -1,8 +1,11 @@
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 
 from typing import Tuple
 from src.model.layers.layers import BN, DownSampleDWSLayer, Dropout, DWSLayer, InvariantLayer, ReLU, NaiveInvariantLayer
+
+import math
 
 # Model
 class MLP(nn.Module):
@@ -44,10 +47,10 @@ class MLP(nn.Module):
     
 # Atuoencoder Models
 class VAE(nn.Module):
-    def __init__(self, latent_dim, dropout=0.0) -> None:
+    def __init__(self, in_out_dim = 33, latent_dim = 2, dropout=0.0) -> None:
         super(VAE, self).__init__()
         self.encoder = nn.Sequential(
-            torch.nn.Linear(33, 1024),
+            torch.nn.Linear(in_out_dim, 1024),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(1024),
             torch.nn.Dropout(dropout),
@@ -84,7 +87,7 @@ class VAE(nn.Module):
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(1024),
             torch.nn.Dropout(dropout),
-            torch.nn.Linear(1024, 33),
+            torch.nn.Linear(1024, in_out_dim),
         )
 
     def reparameterize(self, mu, logvar):
@@ -101,11 +104,11 @@ class VAE(nn.Module):
 
 
 class Autoencoder(nn.Module):
-    def __init__(self, latent_dim, dropout=0.0) -> None:
+    def __init__(self, in_out_dim = 33, latent_dim = 2, dropout=0.0) -> None:
         super(Autoencoder, self).__init__()
         
         self.encoder = torch.nn.Sequential(
-            torch.nn.Linear(33, 1024),
+            torch.nn.Linear(in_out_dim, 1024),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(1024),
             torch.nn.Dropout(dropout),
@@ -141,7 +144,7 @@ class Autoencoder(nn.Module):
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(1024),
             torch.nn.Dropout(dropout),
-            torch.nn.Linear(1024, 33),
+            torch.nn.Linear(1024, in_out_dim),
         )
 
     def forward(self, x):
@@ -287,7 +290,7 @@ class DBModel(nn.Module):
         if(self.batch_first):
             weights_1 = parameters[:, :16].reshape(-1, 8, 2).transpose(1, 2)
             bias_1 = parameters[:, 16:24].reshape(-1, 8)
-            weights_2 = parameters[:, 24:32].reshape(-1, 1,8).transpose(1, 2)
+            weights_2 = parameters[:, 24:32].reshape(-1, 1, 8).transpose(1, 2)
             bias_2 = parameters[:, 32:33].reshape(-1, 1)
 
             bias_1 = bias_1.unsqueeze(1).repeat(1, input.shape[1], 1)
@@ -307,6 +310,119 @@ class DBModel(nn.Module):
             x = self.relu(x)
 
             x = torch.matmul(x, weights_2) + bias_2
+
+
+        x = self.sigmoid(x) 
+        return x
+
+class DBModelMedium(nn.Module):
+    '''
+    Model to classify the input with given parameters.
+    Parameters:
+        autoencoder (nn.Module): The autoencoder to use for the parameters.
+        use_autoencoder (bool): Whether to use the autoencoder or not.
+    '''
+    def __init__(self, batch_first=True) -> None:
+        super(DBModelMedium, self).__init__()
+
+        self.batch_first = batch_first
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, parameters, input):
+        if(self.batch_first):
+            weights_1 = parameters[:, :20].reshape(-1, 10, 2).transpose(1, 2)
+            bias_1 = parameters[:, 20:30].reshape(-1, 10)
+            weights_2 = parameters[:, 30:130].reshape(-1, 10, 10).transpose(1, 2)
+            bias_2 = parameters[:, 130:140].reshape(-1, 10)
+            weights_3 = parameters[:, 140:150].reshape(-1, 1, 10).transpose(1, 2)
+            bias_3 = parameters[:, 150:115].reshape(-1, 1)
+
+            bias_1 = bias_1.unsqueeze(1).repeat(1, input.shape[1], 1)
+            bias_2 = bias_2.unsqueeze(1).repeat(1, input.shape[1], 1)
+            bias_3 = bias_3.unsqueeze(1).repeat(1, input.shape[1], 1)
+        
+            x = torch.bmm(input, weights_1) + bias_1
+            x = self.relu(x)
+            x = torch.bmm(x, weights_2) + bias_2
+            x = self.relu(x)
+
+            x = torch.bmm(x, weights_3) + bias_3
+        else:
+            weights_1 = parameters[:20].reshape(10, 2).T
+            bias_1 = parameters[20:30].reshape(10)
+            weights_2 = parameters[30:130].reshape(10, 10).T
+            bias_2 = parameters[130:140].reshape(10)
+            weights_3 = parameters[140:150].reshape(1, 10).T
+            bias_3 = parameters[150:151].reshape(1)
+
+            x = torch.matmul(input, weights_1) + bias_1
+            x = self.relu(x)
+            x = torch.matmul(x, weights_2) + bias_2
+            x = self.relu(x)
+
+            x = torch.matmul(x, weights_3) + bias_3
+
+
+        x = self.sigmoid(x) 
+        return x
+
+class DBModelBig(nn.Module):
+    '''
+    Model to classify the input with given parameters.
+    Parameters:
+        autoencoder (nn.Module): The autoencoder to use for the parameters.
+        use_autoencoder (bool): Whether to use the autoencoder or not.
+    '''
+    def __init__(self, batch_first=True) -> None:
+        super(DBModelBig, self).__init__()
+
+        self.batch_first = batch_first
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, parameters, input):
+        if(self.batch_first):
+            weights_1 = parameters[:, :20].reshape(-1, 10, 2).transpose(1, 2)
+            bias_1 = parameters[:, 20:30].reshape(-1, 10)
+            weights_2 = parameters[:, 30:130].reshape(-1, 10, 10).transpose(1, 2)
+            bias_2 = parameters[:, 130:140].reshape(-1, 10)
+            weights_3 = parameters[:, 140:240].reshape(-1, 10, 10).transpose(1, 2)
+            bias_3 = parameters[:, 240:250].reshape(-1, 10)
+            weights_4 = parameters[:, 250:260].reshape(-1, 1, 10).transpose(1, 2)
+            bias_4 = parameters[:, 260:261].reshape(-1, 1)
+
+            bias_1 = bias_1.unsqueeze(1).repeat(1, input.shape[1], 1)
+            bias_2 = bias_2.unsqueeze(1).repeat(1, input.shape[1], 1)
+            bias_3 = bias_3.unsqueeze(1).repeat(1, input.shape[1], 1)
+            bias_4 = bias_4.unsqueeze(1).repeat(1, input.shape[1], 1)
+        
+            x = torch.bmm(input, weights_1) + bias_1
+            x = self.relu(x)
+            x = torch.bmm(x, weights_2) + bias_2
+            x = self.relu(x)
+            x = torch.bmm(x, weights_3) + bias_3
+            x = self.relu(x)
+
+            x = torch.bmm(x, weights_4) + bias_4
+        else:
+            weights_1 = parameters[:20].reshape(10, 2).T
+            bias_1 = parameters[20:30].reshape(10)
+            weights_2 = parameters[30:130].reshape(10, 10).T
+            bias_2 = parameters[130:140].reshape(10)
+            weights_3 = parameters[140:240].reshape(10, 10).T
+            bias_3 = parameters[240:250].reshape(10)
+            weights_4 = parameters[250:260].reshape(1, 10).T
+            bias_4 = parameters[260:261].reshape(1)
+
+            x = torch.matmul(input, weights_1) + bias_1
+            x = self.relu(x)
+            x = torch.matmul(x, weights_2) + bias_2
+            x = self.relu(x)
+            x = torch.matmul(x, weights_3) + bias_3
+            x = self.relu(x)
+
+            x = torch.matmul(x, weights_4) + bias_4
 
 
         x = self.sigmoid(x) 
@@ -388,7 +504,7 @@ class DWSModel(nn.Module):
             diagonal=False,
     ):
         super().__init__()
-        # assert len(weight_shapes) > 2, "the current implementation only support input networks with M>2 layers."
+        assert len(weight_shapes) > 2, "the current implementation only support input networks with M>2 layers."
 
         self.input_features = input_features
         self.input_dim_downsample = input_dim_downsample
@@ -563,7 +679,7 @@ class DWSModelForClassification(nn.Module):
         )
         self.dropout = Dropout(dropout_rate)
         self.relu = ReLU()
-        self.clf = NaiveInvariantLayer(
+        self.clf = InvariantLayer(
             weight_shapes=weight_shapes,
             bias_shapes=bias_shapes,
             in_features=hidden_dim
@@ -574,15 +690,94 @@ class DWSModelForClassification(nn.Module):
             n_fc_layers=n_out_fc,
         )
 
-        self.softmax = nn.Softmax(dim=1)
-
     def forward(
         self, x: Tuple[Tuple[torch.tensor], Tuple[torch.tensor]], return_equiv=False
     ):
         x = self.layers(x)
         out = self.clf(self.dropout(self.relu(x)))
-        # out = self.softmax(out)
         if return_equiv:
             return out, x
         else:
             return out
+        
+
+# Source code from Set Transformers paper
+# https://github.com/juho-lee/set_transformer
+
+
+class MAB(nn.Module):
+    def __init__(self, dim_Q, dim_K, dim_V, num_heads, ln=False):
+        super(MAB, self).__init__()
+        self.dim_V = dim_V
+        self.num_heads = num_heads
+        self.fc_q = nn.Linear(dim_Q, dim_V)
+        self.fc_k = nn.Linear(dim_K, dim_V)
+        self.fc_v = nn.Linear(dim_K, dim_V)
+        if ln:
+            self.ln0 = nn.LayerNorm(dim_V)
+            self.ln1 = nn.LayerNorm(dim_V)
+        self.fc_o = nn.Linear(dim_V, dim_V)
+
+    def forward(self, Q, K):
+        Q = self.fc_q(Q)
+        K, V = self.fc_k(K), self.fc_v(K)
+
+        dim_split = self.dim_V // self.num_heads
+        Q_ = torch.cat(Q.split(dim_split, 2), 0)
+        K_ = torch.cat(K.split(dim_split, 2), 0)
+        V_ = torch.cat(V.split(dim_split, 2), 0)
+
+        A = torch.softmax(Q_.bmm(K_.transpose(1,2))/math.sqrt(self.dim_V), 2)
+        O = torch.cat((Q_ + A.bmm(V_)).split(Q.size(0), 0), 2)
+        O = O if getattr(self, 'ln0', None) is None else self.ln0(O)
+        O = O + F.relu(self.fc_o(O))
+        O = O if getattr(self, 'ln1', None) is None else self.ln1(O)
+        return O
+
+class SAB(nn.Module):
+    def __init__(self, dim_in, dim_out, num_heads, ln=False):
+        super(SAB, self).__init__()
+        self.mab = MAB(dim_in, dim_in, dim_out, num_heads, ln=ln)
+
+    def forward(self, X):
+        return self.mab(X, X)
+
+class ISAB(nn.Module):
+    def __init__(self, dim_in, dim_out, num_heads, num_inds, ln=False):
+        super(ISAB, self).__init__()
+        self.I = nn.Parameter(torch.Tensor(1, num_inds, dim_out))
+        nn.init.xavier_uniform_(self.I)
+        self.mab0 = MAB(dim_out, dim_in, dim_out, num_heads, ln=ln)
+        self.mab1 = MAB(dim_in, dim_out, dim_out, num_heads, ln=ln)
+
+    def forward(self, X):
+        H = self.mab0(self.I.repeat(X.size(0), 1, 1), X)
+        return self.mab1(X, H)
+
+class PMA(nn.Module):
+    def __init__(self, dim, num_heads, num_seeds, ln=False):
+        super(PMA, self).__init__()
+        self.S = nn.Parameter(torch.Tensor(1, num_seeds, dim))
+        nn.init.xavier_uniform_(self.S)
+        self.mab = MAB(dim, dim, dim, num_heads, ln=ln)
+
+    def forward(self, X):
+        return self.mab(self.S.repeat(X.size(0), 1, 1), X)
+
+
+class SetTransformer(nn.Module):
+    def __init__(self, dim_input, num_outputs, dim_output,
+            num_inds=32, dim_hidden=128, num_heads=4, ln=False):
+        super(SetTransformer, self).__init__()
+        self.enc = nn.Sequential(
+                ISAB(dim_input, dim_hidden, num_heads, num_inds, ln=ln),
+                ISAB(dim_hidden, dim_hidden, num_heads, num_inds, ln=ln))
+        self.dec = nn.Sequential(
+                PMA(dim_hidden, num_heads, num_outputs, ln=ln),
+                SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
+                SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
+                nn.Linear(dim_hidden, dim_output),
+                nn.Softmax(dim=1))
+
+    def forward(self, X):
+        return self.dec(self.enc(X)).squeeze()

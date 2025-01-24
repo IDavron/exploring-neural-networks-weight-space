@@ -101,10 +101,8 @@ class ModelDataset(torch.utils.data.Dataset):
             [v.permute(1, 0) for w, v in state_dict.items() if "weight" in w]
         )
         biases = tuple([v for w, v in state_dict.items() if "bias" in w])
-        label = int(int(self.dataset["angle"][item]) / 45)
-        label = torch.nn.functional.one_hot(
-            torch.tensor(label), num_classes=8
-        ).float()
+        label = int(self.dataset["angle"][item]) // 45
+        label = torch.nn.functional.one_hot(torch.tensor(label), num_classes=8).float()
 
         # add feature dim
         weights = tuple([w.unsqueeze(-1) for w in weights])

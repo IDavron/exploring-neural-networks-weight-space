@@ -4,7 +4,7 @@ import torch
 from src.data.helpers import rotate
 from src.model.models import DBModel
 
-def plot_decision_boundary(parameters, X, y, steps=1000, color_map='Paired', axis=True, title=None):
+def plot_decision_boundary(parameters, X, y, steps=1000, color_map='Paired', axis=True, title=None, save_path=None, legend=True):
     '''
     Plot the decision boundary of a model.
 
@@ -39,14 +39,19 @@ def plot_decision_boundary(parameters, X, y, steps=1000, color_map='Paired', axi
     plt.scatter(class_1[0], class_1[1], color=color_map.colors[1], marker='o')
     plt.scatter(class_2[0], class_2[1], color=color_map.colors[11], marker='x')
 
-    plt.legend(["0","1"])
+    if(legend):
+        plt.legend(["0","1"])
 
     if title:
         plt.title(title)
     
     if not axis:
-        plt.axis('off')
+        # remove ticks
+        plt.xticks([])
+        plt.yticks([])
 
+    if save_path:
+        plt.savefig(save_path)
     plt.show()
     plt.close()
 
