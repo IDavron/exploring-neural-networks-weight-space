@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 import sklearn.datasets
 
-from src.model.models import MLP, DBModel
+from src.model.models import MLP, DBModelSmall
 from src.data.datasets import ModelDataset, Batch
 
 import json
@@ -13,6 +13,7 @@ import os
 import math
 from collections import defaultdict
 from pathlib import Path
+from tqdm import tqdm
 
 
 gaussian = torch.distributions.multivariate_normal.MultivariateNormal(torch.zeros(33), math.sqrt(1) * torch.eye(33))
@@ -77,12 +78,16 @@ def mlp_from_config(model_config: dict) -> MLP:
     model = MLP(input_dim, hidden_dims, output_dim, dropout, use_batch_norm, output_activation)
     return model
 
-def get_accuracy(parameters, X, y):
+def get_accuracy(model, X, y):
     '''
-    Get the accuracy of a Moons classifier on a moons dataset.
+    Get the accuracy of a model.
+    
+    Args:
+        model (nn.Module): The model to evaluate (DBModels).
+        X (torch.Tensor): Two-moons dataset coordinates.
+        y (torch.Tensor): Two-moons dataset labels.
     '''
-    model = DBModel(False)
-    y_pred = model(parameters, X).squeeze().detach().round().numpy()
+    y_pred = model(X).squeeze().detach().round().numpy()
     correct = (y_pred == y).sum()
     accuracy = correct / len(y) * 100
     return accuracy
@@ -119,7 +124,6 @@ def generate_splits(models_path, save_path, name="dataset_splits.json", total_si
     with open(save_path, "w") as file:
         json.dump(data_split, file)
 
-
 def compute_stats(data_path: str, save_path: str, batch_size: int = 10000, name="statistics.pth"):
     '''
     Compute the mean and standard deviation of the weights and biases of a dataset. 
@@ -144,7 +148,6 @@ def compute_stats(data_path: str, save_path: str, batch_size: int = 10000, name=
     out_path = Path(save_path)
     out_path.mkdir(exist_ok=True, parents=True)
     torch.save(statistics, out_path / name)
-
 
 # For diffusion model
 def add_noise(x_0, noise, alphas_cumprod, t):
@@ -230,10 +233,6 @@ def generate_diffusion(model, angle, num_timesteps=1000, betas=None, prior_dim=3
         sample = reconstruct_xt(residual, sample, t[0], betas)
 
     return sample[0]
-
-if __name__ == "__main__":
-    # generate_splits("models/eight_angles_small", "data")
-    compute_stats("data/dataset_splits.json", "data")
 
 
 @torch.no_grad()

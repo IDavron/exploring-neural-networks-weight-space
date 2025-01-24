@@ -272,21 +272,23 @@ class Diffusion(nn.Module):
 
 # Decision Boundary Loss Models
 
-class DBModel(nn.Module):
+class DBModelSmall(nn.Module):
     '''
     Model to classify the input with given parameters.
     Parameters:
         autoencoder (nn.Module): The autoencoder to use for the parameters.
         use_autoencoder (bool): Whether to use the autoencoder or not.
     '''
-    def __init__(self, batch_first=True) -> None:
-        super(DBModel, self).__init__()
+    def __init__(self, weights=None, batch_first=True) -> None:
+        super(DBModelSmall, self).__init__()
 
+        self.weights = weights
         self.batch_first = batch_first
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
     
-    def forward(self, parameters, input):
+    def forward(self, input):
+        parameters = self.weights
         if(self.batch_first):
             weights_1 = parameters[:, :16].reshape(-1, 8, 2).transpose(1, 2)
             bias_1 = parameters[:, 16:24].reshape(-1, 8)
@@ -314,6 +316,9 @@ class DBModel(nn.Module):
 
         x = self.sigmoid(x) 
         return x
+    
+    def set_weights(self, weights):
+        self.weights = weights
 
 class DBModelMedium(nn.Module):
     '''
@@ -322,14 +327,16 @@ class DBModelMedium(nn.Module):
         autoencoder (nn.Module): The autoencoder to use for the parameters.
         use_autoencoder (bool): Whether to use the autoencoder or not.
     '''
-    def __init__(self, batch_first=True) -> None:
+    def __init__(self, weights=None, batch_first=True) -> None:
         super(DBModelMedium, self).__init__()
 
+        self.weights = weights
         self.batch_first = batch_first
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
     
-    def forward(self, parameters, input):
+    def forward(self, input):
+        parameters = self.weights
         if(self.batch_first):
             weights_1 = parameters[:, :20].reshape(-1, 10, 2).transpose(1, 2)
             bias_1 = parameters[:, 20:30].reshape(-1, 10)
@@ -367,6 +374,9 @@ class DBModelMedium(nn.Module):
         x = self.sigmoid(x) 
         return x
 
+    def set_weights(self, weights):
+        self.weights = weights
+
 class DBModelBig(nn.Module):
     '''
     Model to classify the input with given parameters.
@@ -374,14 +384,16 @@ class DBModelBig(nn.Module):
         autoencoder (nn.Module): The autoencoder to use for the parameters.
         use_autoencoder (bool): Whether to use the autoencoder or not.
     '''
-    def __init__(self, batch_first=True) -> None:
+    def __init__(self, weights=None, batch_first=True) -> None:
         super(DBModelBig, self).__init__()
 
+        self.weights = weights
         self.batch_first = batch_first
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
     
-    def forward(self, parameters, input):
+    def forward(self, input):
+        parameters = self.weights
         if(self.batch_first):
             weights_1 = parameters[:, :20].reshape(-1, 10, 2).transpose(1, 2)
             bias_1 = parameters[:, 20:30].reshape(-1, 10)
@@ -427,23 +439,22 @@ class DBModelBig(nn.Module):
 
         x = self.sigmoid(x) 
         return x
+    
+    def set_weights(self, weights):
+        self.weights = weights
 
 
 class SModel(nn.Module):
-    '''
-    Model to classify the input with given parameters.
-    Parameters:
-        autoencoder (nn.Module): The autoencoder to use for the parameters.
-        use_autoencoder (bool): Whether to use the autoencoder or not.
-    '''
-    def __init__(self, batch_first=True) -> None:
+    def __init__(self, weights=None, batch_first=True) -> None:
         super(SModel, self).__init__()
 
+        self.weights = weights
         self.batch_first = batch_first
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
     
-    def forward(self, parameters, input):
+    def forward(self, input):
+        parameters = self.weights
         if(self.batch_first):
             weights_1 = parameters[:, :8].reshape(-1, 4, 2).transpose(1, 2)
             bias_1 = parameters[:, 8:12].reshape(-1, 4)
@@ -471,6 +482,9 @@ class SModel(nn.Module):
 
         x = self.sigmoid(x) 
         return x
+    
+    def set_weights(self, weights):
+        self.weights = weights
 
 # Source code from Equivariant Architectures for Learning in Deep Weight Spaces
 # https://github.com/AvivNavon/DWSNets
