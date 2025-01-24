@@ -224,8 +224,8 @@ class Flow(nn.Module):
         return self.layers(x)
 
 # Diffusion Model
+# Taken from Tiny Diffusion repository: https://github.com/tanelp/tiny-diffusion'''
 class SinusoidalEmbedding(nn.Module):
-    '''Taken from Tiny Diffusion repository: https://github.com/tanelp/tiny-diffusion'''
     def __init__(self, size: int, scale: float = 1.0):
         super().__init__()
         self.size = size
@@ -270,8 +270,8 @@ class Diffusion(nn.Module):
         x = self.layers(x)
         return x
 
-# Decision Boundary Loss Models
 
+# Decision Boundary Loss Models
 class DBModelSmall(nn.Module):
     '''
     Model to classify the input with given parameters.
@@ -717,8 +717,6 @@ class DWSModelForClassification(nn.Module):
 
 # Source code from Set Transformers paper
 # https://github.com/juho-lee/set_transformer
-
-
 class MAB(nn.Module):
     def __init__(self, dim_Q, dim_K, dim_V, num_heads, ln=False):
         super(MAB, self).__init__()
