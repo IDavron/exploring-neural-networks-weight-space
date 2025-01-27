@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 import numpy as np
@@ -323,3 +324,53 @@ def find_closest_vectors(X, Y):
     closest_vectors = Y[closest_indices]
 
     return closest_vals, closest_vectors
+
+
+
+# Model zoo generation
+
+def generate_model_zoo(zoo_name, input_dim, hidden_dims, output_dim, angles=(0, 45, 90, 135, 180, 225, 270, 315), models_per_angle=10000, learning_rate=0.05, epochs=60, accuracy_thershold=0.95, save_dir="../models/", seed=42, device=None):
+    
+    if(device is None):
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    # Two-moons dataset
+    X, y = get_moons_dataset()
+    criterion = nn.BCELoss()
+
+    save_path = Path(save_dir) / zoo_name
+    save_path.mkdir(exist_ok=True)
+
+    torch.manual_seed(seed)
+    model_accuracies = []
+
+    for angle in tqdm(angles):
+        X_rotated = rotate(X, angle)
+        X_tensor = torch.tensor(X_rotated, dtype=torch.float32).to(device)
+        y_tensor = torch.tensor(y, dtype=torch.float32).to(device)
+        i = 0
+        while i < models_per_angle:
+            model = MLP(input_dim=input_dim, hidden_dims=hidden_dims, output_dim=output_dim)
+            model.to(device)
+            optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+            for _ in range(epochs):
+                optimizer.zero_grad()
+                y_pred = model(X_tensor).flatten()
+                loss = criterion(y_pred, y_tensor)
+                loss.backward()
+                optimizer.step()
+            
+            model.eval()
+            y_pred = model(X_tensor).flatten()
+            correct = (y_pred.round() == y_tensor).sum().item()
+            accuracy = correct / len(y)
+            
+            if(accuracy >= 0.95):
+                model_name = f"model_{angle}_{i}.pth"
+                model_path = save_path / model_name
+                torch.save(model.state_dict(), model_path)
+                model_accuracies.append((model_name, accuracy))
+                i += 1
+    
+    return model_accuracies
