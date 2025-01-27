@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from src.data.helpers import rotate
-from src.model.models import DBModelSmall
+from src.data.helpers import rotate, get_moons_dataset
 
 def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', axis=True, title=None, save_path=None, legend=True):
     '''
