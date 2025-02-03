@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from src.data.helpers import rotate, get_moons_dataset
 
 def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', axis=True, title=None, save_path=None, legend=True):
     '''
@@ -53,21 +52,21 @@ def plot_decision_boundary(model, X, y, steps=1000, color_map='Paired', axis=Tru
     plt.close()
 
 
-def plot_interpolation(model, datapoint_1, datapoint_2, X, y, alpha):
-    parameters_1, angle_1 = datapoint_1
-    parameters_2, angle_2 = datapoint_2
+# def plot_interpolation(model, datapoint_1, datapoint_2, X, y, alpha):
+#     parameters_1, angle_1 = datapoint_1
+#     parameters_2, angle_2 = datapoint_2
 
-    parameters_1 = parameters_1.unsqueeze(0)
-    parameters_2 = parameters_2.unsqueeze(0)
+#     parameters_1 = parameters_1.unsqueeze(0)
+#     parameters_2 = parameters_2.unsqueeze(0)
 
-    latent_1 = model.encoder(parameters_1)
-    latent_2 = model.encoder(parameters_2)
+#     latent_1 = model.encoder(parameters_1)
+#     latent_2 = model.encoder(parameters_2)
 
-    latent = (1-alpha)*latent_1 + alpha*latent_2
-    w = model.decoder(latent).squeeze()
+#     latent = (1-alpha)*latent_1 + alpha*latent_2
+#     w = model.decoder(latent).squeeze()
 
-    angle = (1-alpha)*angle_1 + alpha*angle_2
-    X_rotated = rotate(X, angle)
-    X_rotated = torch.tensor(X_rotated).float()
+#     angle = (1-alpha)*angle_1 + alpha*angle_2
+#     X_rotated = rotate(X, angle)
+#     X_rotated = torch.tensor(X_rotated).float()
 
-    plot_decision_boundary(w, X_rotated, y)
+#     plot_decision_boundary(w, X_rotated, y)
