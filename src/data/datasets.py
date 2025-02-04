@@ -112,8 +112,3 @@ class ModelDataset(torch.utils.data.Dataset):
             weights, biases = self._normalize(weights, biases)
 
         return Batch(weights=weights, biases=biases, label=label)
-
-
-if __name__ == "__main__":
-    dataset = ModelDataset("data/dataset_splits.json")
-    print(dataset[0])
