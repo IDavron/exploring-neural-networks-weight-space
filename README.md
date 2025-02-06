@@ -25,4 +25,4 @@ Second is to train a generational models in the weight space of these zoos to co
 
 ## Generated decision boundaries examples
 
-<img src="https://github.com/IDavron/exploring-neural-networks-weight-space/blob/main/reports/sample-1.png" width=500> <img src="https://github.com/IDavron/exploring-neural-networks-weight-space/blob/main/reports/sample-2.png" width=500>
+<img src="https://github.com/IDavron/exploring-neural-networks-weight-space/blob/main/reports/sample-1.png" width=400> <img src="https://github.com/IDavron/exploring-neural-networks-weight-space/blob/main/reports/sample-2.png" width=400>
