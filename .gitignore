@@ -6,4 +6,6 @@ src.egg-info
 __pycache__
 
 .env
-reports/*
+
+reports/*.pdf
+reports/*.csv
