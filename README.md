@@ -28,6 +28,6 @@ We compare the generated parameters between Variational Autoencoder, Diffusion a
   <img src="https://github.com/IDavron/exploring-neural-networks-weight-space/blob/main/reports/big-zoo-classification-accuracy.png" width=500>
 </p>
 
-## Generated decision boundaries examples
+## Generated decision boundary examples
 
 <img src="https://github.com/IDavron/exploring-neural-networks-weight-space/blob/main/reports/sample-1.png" width=400> <img src="https://github.com/IDavron/exploring-neural-networks-weight-space/blob/main/reports/sample-2.png" width=400>
