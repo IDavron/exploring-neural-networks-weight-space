@@ -10,7 +10,7 @@ We compare the generated parameters between Variational Autoencoder, Diffusion a
 ## Structure
 
 * src - contains the reusable code used throughout the research.
-* data - should contain dataset files for each zoo and data splits. Left empty becuase dataset files are too large for github.
+* data - should contain dataset files for each zoo and data splits. Left empty becuase dataset files are too large for github. The files can be found in [Google Drive](https://drive.google.com/drive/folders/1ANk3a5drWipgdUFWfBeAfyfN23nSEFXu) and put into the folder manually.
 * configs - contains the .yaml config files for the MLP classifiers.
 * reports - contains plots and diagrams with results.
 * notebooks - contains jupyter notebooks used to train and evaluate classifier and generative models.
