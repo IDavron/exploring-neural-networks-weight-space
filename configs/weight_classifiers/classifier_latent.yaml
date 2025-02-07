@@ -1,7 +1,7 @@
 name: "classifier_latent"
 
 dataset:
-  name: "eight_angles_small_latent.csv"
+  name: "zoo_small_extra.csv"
   splits: [0.7, 0.2, 0.1]
   batch_size: 128
   seed: 42
